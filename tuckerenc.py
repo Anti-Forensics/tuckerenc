@@ -1,8 +1,6 @@
 import argparse
 import base64
-
 from PIL import Image
-import os
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -20,7 +18,7 @@ class TuckerLsb:
     - input_image (str): Path to the input image.
     - output_image (str): Path to the output image with the message hidden in it.
     - message (str): The message to hide within the image.
-    - delimeter (str): A delimiter to signify the end of the hidden message.
+    - delimiter (str): A delimiter to signify the end of the hidden message.
     """
 
     def __init__(self, input_image: str, output_image: str, message: str) -> None:
@@ -37,48 +35,6 @@ class TuckerLsb:
         self.message = message
         self.delimiter = '1111111111111110'
 
-
-    def text_to_binary(self, message: str) -> str:
-        """
-        Converts a text message into a binary string.
-
-        Each character of the input message is converted into its ASCII binary representation. The binary strings
-        for all characters are concatenated to form a single binary string.
-
-        Parameters:
-        - message (str): The text message to convert to binary.
-
-        Returns:
-        - str: A binary string representation of the input text message.
-        """
-        binary_string = ''
-
-        f = Fernet(self.get_key())
-
-        message = base64.urlsafe_b64encode(f.encrypt(message.encode())).decode()
-        print(message)
-
-        for char in message:
-            binary_char = format(ord(char), '08b')
-            binary_string += binary_char
-
-        return binary_string
-
-    def get_key(self) -> bytes:
-        passphrase = getpass.getpass(prompt="ENTER PASSPHRASE: ", stream=None)
-
-        salt = b'1234567812345678'
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=salt,
-            iterations=480000,
-        )
-
-        key = base64.urlsafe_b64encode(kdf.derive(passphrase.encode()))
-        return key
-
-
     def hide_message(self) -> None:
         """
         Hides the message within the input image using LSB steganography and saves the modified image.
@@ -87,7 +43,7 @@ class TuckerLsb:
         in the input image. The modified image is then saved to the output image path.
         """
         image = Image.open(self.input_image)
-        binary_message = self.text_to_binary(self.message) + self.delimiter
+        binary_message = text_to_binary(self.message) + self.delimiter
         pixels = image.load()
         message_index = 0
 
@@ -109,29 +65,6 @@ class TuckerLsb:
 
         print(f'[+] Saving image to: {self.output_image}')
         image.save(self.output_image)
-
-    def binary_to_text(self, binary_message: str) -> str:
-        """
-        Converts a binary string back into its textual representation.
-
-        The binary string is divided into segments of 8 bits, each representing a single character. These segments
-        are converted back to text.
-
-        Parameters:
-        - binary_message (str): The binary string to convert back to text.
-
-        Returns:
-        - str: The textual representation of the binary string.
-        """
-        text = ''
-
-
-
-        for i in range(0, len(binary_message), 8):
-            byte = binary_message[i:i + 8]
-            text += chr(int(byte, 2))
-
-        return text
 
     def reveal_message(self, input_image: str) -> str:
         """
@@ -157,14 +90,77 @@ class TuckerLsb:
 
                 if binary_message.endswith(self.delimiter):
                     binary_message = binary_message[:-16]  # Remove the delimiter
-                    message = self.binary_to_text(binary_message)
+                    message = binary_to_text(binary_message)
 
-                    f = Fernet(self.get_key())
+                    f = Fernet(get_key())
                     message = f.decrypt(base64.urlsafe_b64decode(message)).decode()
 
                     return message
 
         return "ERROR"
+
+
+def get_key() -> bytes:
+    passphrase = getpass.getpass(prompt="ENTER PASSPHRASE: ", stream=None)
+
+    salt = b'1234567812345678'
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=480000,
+    )
+
+    key = base64.urlsafe_b64encode(kdf.derive(passphrase.encode()))
+    return key
+
+
+def text_to_binary(message: str) -> str:
+    """
+    Converts a text message into a binary string.
+
+    Each character of the input message is converted into its ASCII binary representation. The binary strings
+    for all characters are concatenated to form a single binary string.
+
+    Parameters:
+    - message (str): The text message to convert to binary.
+
+    Returns:
+    - str: A binary string representation of the input text message.
+    """
+    binary_string = ''
+
+    f = Fernet(get_key())
+
+    message = base64.urlsafe_b64encode(f.encrypt(message.encode())).decode()
+
+    for char in message:
+        binary_char = format(ord(char), '08b')
+        binary_string += binary_char
+
+    return binary_string
+
+
+def binary_to_text(binary_message: str) -> str:
+    """
+    Converts a binary string back into its textual representation.
+
+    The binary string is divided into segments of 8 bits, each representing a single character. These segments
+    are converted back to text.
+
+    Parameters:
+    - binary_message (str): The binary string to convert back to text.
+
+    Returns:
+    - str: The textual representation of the binary string.
+    """
+    text = ''
+
+    for i in range(0, len(binary_message), 8):
+        byte = binary_message[i:i + 8]
+        text += chr(int(byte, 2))
+
+    return text
 
 
 def main():
